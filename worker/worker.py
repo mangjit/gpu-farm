@@ -214,10 +214,15 @@ def get_pipe():
         STATE["status"] = "loading-model"
         pipe = LTXPipeline.from_pretrained("Lightricks/LTX-Video",
                                            torch_dtype=torch.bfloat16)
+        # sequential offload: only one layer in RAM at a time — without this,
+        # the ~12GB model exceeds Colab's ~12.7GB RAM and the kernel crash-loops
         try:
-            pipe.enable_model_cpu_offload()
+            pipe.enable_sequential_cpu_offload()
         except Exception:
-            pipe = pipe.to("cuda")
+            try:
+                pipe.enable_model_cpu_offload()
+            except Exception:
+                pipe = pipe.to("cuda")
         try:
             pipe.vae.enable_tiling()
         except Exception:
