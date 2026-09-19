@@ -18,8 +18,30 @@ API_KEY = "your-shared-secret"                  # must match brain API_KEY
 WORKER_NAME = ""                                # optional friendly name
 MODE = "video"        # "video" | "llm" | "both"
 LLM_MODEL = "qwen2.5:7b-instruct"   # pulled by Ollama in llm/both mode
-EXPOSE_LLM = True     # start cloudflared tunnel + register URL with brain
+# HF token: not required (LTX-Video is public) but removes download rate limits.
+# Free token: https://huggingface.co/settings/tokens (type: read)
+HF_TOKEN = ""   # paste here, or add a secret named HF_TOKEN in Colab/Kaggle
 # ==============================================================
+
+if not HF_TOKEN:
+    try:
+        from google.colab import userdata  # Colab left-bar key icon
+        HF_TOKEN = userdata.get("HF_TOKEN") or ""
+    except Exception:
+        pass
+if not HF_TOKEN:
+    try:
+        from kaggle_secrets import UserSecretsClient  # Kaggle Add-ons -> Secrets
+        HF_TOKEN = UserSecretsClient().get_secret("HF_TOKEN") or ""
+    except Exception:
+        pass
+HF_TOKEN = HF_TOKEN or os.environ.get("HF_TOKEN", "")
+if HF_TOKEN:
+    os.environ["HF_TOKEN"] = HF_TOKEN
+    os.environ["HUGGING_FACE_HUB_TOKEN"] = HF_TOKEN
+    print("HF_TOKEN set — faster downloads, no rate limits")
+else:
+    print("no HF_TOKEN — public models still download fine, just rate-limited")
 
 MAX_IDLE_CYCLES = 20        # 20 x 30s = 10 min idle before shutdown
 POLL_S = 30
