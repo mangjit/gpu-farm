@@ -9,6 +9,7 @@ import time
 import uuid
 import asyncio
 import threading
+import traceback
 from typing import Optional
 
 import redis
@@ -27,7 +28,20 @@ MAX_ATTEMPTS = 3
 
 if not REDIS_URL:
     raise RuntimeError("REDIS_URL env var is required (Upstash rediss:// URL)")
+if not REDIS_URL.startswith(("rediss://", "redis://")):
+    raise RuntimeError("REDIS_URL must start with rediss:// — got: "
+                       + REDIS_URL[:15] + "...")
 r = redis.Redis.from_url(REDIS_URL, decode_responses=True)
+
+
+@app.middleware("http")
+async def log_errors(request: Request, call_next):
+    try:
+        return await call_next(request)
+    except Exception:
+        print("UNHANDLED ERROR on", request.url.path)
+        traceback.print_exc()
+        raise
 
 app = FastAPI(title="GPU Farm Brain")
 
@@ -402,6 +416,19 @@ def dash(key: str = ""):
 @app.get("/healthz")
 def healthz():
     return {"ok": True}
+
+
+@app.get("/api/envcheck", dependencies=[Depends(auth)])
+def envcheck():
+    """Safe diagnostic: which env vars are set + live Redis ping."""
+    return {
+        "REDIS_URL_set": bool(REDIS_URL),
+        "REDIS_URL_scheme": REDIS_URL.split("://")[0] if REDIS_URL else "",
+        "API_KEY_set": bool(API_KEY and API_KEY != "change-me"),
+        "TELEGRAM_TOKEN_set": bool(TELEGRAM_TOKEN),
+        "TELEGRAM_CHAT_ID_set": bool(TELEGRAM_CHAT_ID),
+        "redis_ping": r.ping(),
+    }
 
 
 # ----------------------------- reaper -----------------------------
