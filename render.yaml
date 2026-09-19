@@ -1,0 +1,24 @@
+# Render Blueprint — lives at the REPO ROOT so Render auto-detects it.
+# Just: New + → Blueprint → select this repo. Everything below is automatic,
+# including the brain/ subfolder (rootDir handles that — no manual setting).
+services:
+  - type: web
+    name: gpu-farm-brain
+    runtime: python
+    plan: free
+    rootDir: brain                        # <- the app lives in brain/
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn app:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /healthz             # Render monitors this automatically
+    autoDeploy: true                      # redeploys on every git push
+    envVars:
+      - key: API_KEY
+        sync: false                       # set once in the dashboard
+      - key: TELEGRAM_TOKEN
+        sync: false
+      - key: TELEGRAM_CHAT_ID
+        sync: false
+      - key: REDIS_URL
+        sync: false
+      - key: WORKER_TIMEOUT_S
+        value: "300"

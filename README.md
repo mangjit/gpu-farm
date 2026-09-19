@@ -28,14 +28,17 @@ Telegram / Dashboard ──▶ Render brain (Redis queue) ──▶ workers poll
    → copy the **token** (looks like `123456:ABC-DEF...`)
 2. Message **@userinfobot** → copy your **chat id** (a number like `123456789`)
 
-### Step 3 — Deploy the brain on Render (7 min)
+### Step 3 — Deploy the brain on Render (5 min)
+
+The repo root contains a **Blueprint** (`render.yaml`) that auto-configures
+everything — including the `brain/` subfolder. You don't set any directories.
 
 1. **render.com** → sign up/login with GitHub
-2. **New + → Web Service** → connect your `gpu-farm` repo
-3. Settings:
-   - **Root Directory:** `brain`  ← important! (the app lives in the subfolder)
-   - Build/start commands auto-fill from `render.yaml` — leave them
-4. **Environment → Add Environment Variable** — add these 4:
+2. **New + → Blueprint** → connect your `gpu-farm` repo → **Apply**
+   - Render reads the root `render.yaml` and creates the service automatically
+     (name, Python runtime, `rootDir: brain`, build/start commands, health
+     check, auto-deploy on push — all wired for you)
+3. **Environment** → set the 4 `sync: false` values Render asks for:
 
 | Key | Value |
 |---|---|
@@ -44,9 +47,14 @@ Telegram / Dashboard ──▶ Render brain (Redis queue) ──▶ workers poll
 | `TELEGRAM_TOKEN` | token from Step 2 |
 | `TELEGRAM_CHAT_ID` | your chat id from Step 2 |
 
-5. **Deploy** → wait ~2 min → you get `https://gpu-farm-brain.onrender.com`
-6. ✅ **Test:** open `https://gpu-farm-brain.onrender.com/healthz`
+4. Deploy finishes → you get `https://gpu-farm-brain.onrender.com`
+5. ✅ **Test:** open `https://gpu-farm-brain.onrender.com/healthz`
    → must show `{"ok":true}`
+
+> Prefer a plain Web Service instead? **New + → Web Service** → repo →
+> **Settings → Build & Deploy → Root Directory** = `brain`, build =
+> `pip install -r requirements.txt`, start =
+> `uvicorn app:app --host 0.0.0.0 --port $PORT`. Same result, manual.
 
 ### Step 4 — Connect Telegram to the brain (1 min)
 
@@ -185,11 +193,11 @@ Session 1 = T4 in `llm` mode · Session 2 = T4/A100 in `video` mode.
 ```
 gpu-farm/
 ├── README.md                  ← you are here
-├── brain/                     ← deploy this folder to Render (root dir: brain)
+├── render.yaml                ← Render Blueprint (rootDir: brain — automatic)
+├── brain/                     ← the app (Blueprint points Render here)
 │   ├── app.py                 ← queue, routing, Telegram bot, dashboard,
 │   │                            reaper, error classifier, tunnel registry
 │   ├── requirements.txt
-│   ├── render.yaml
 │   └── test_import.py         ← test suite (14 checks)
 ├── worker/
 │   └── worker.py              ← one-cell paste for Colab/Kaggle/Lightning
