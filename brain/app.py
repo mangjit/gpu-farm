@@ -31,19 +31,30 @@ if not REDIS_URL:
 if not REDIS_URL.startswith(("rediss://", "redis://")):
     raise RuntimeError("REDIS_URL must start with rediss:// — got: "
                        + REDIS_URL[:15] + "...")
-r = redis.Redis.from_url(REDIS_URL, decode_responses=True)
+r = redis.Redis.from_url(
+    REDIS_URL,
+    decode_responses=True,
+    protocol=2,                 # RESP2 — Upstash closes RESP3 handshakes from some networks
+    socket_timeout=10,
+    socket_connect_timeout=10,
+    socket_keepalive=True,
+    health_check_interval=30,   # drop stale connections before they break requests
+    retry_on_timeout=True,
+)
 
 
-@app.middleware("http")
-async def log_errors(request: Request, call_next):
-    try:
-        return await call_next(request)
-    except Exception:
-        print("UNHANDLED ERROR on", request.url.path)
-        traceback.print_exc()
-        raise
+def _attach_error_logging(app):
+    @app.middleware("http")
+    async def log_errors(request: Request, call_next):
+        try:
+            return await call_next(request)
+        except Exception:
+            print("UNHANDLED ERROR on", request.url.path)
+            traceback.print_exc()
+            raise
 
 app = FastAPI(title="GPU Farm Brain")
+_attach_error_logging(app)
 
 QUEUE = "queue:pending"      # redis list of pending job ids
 RECENT = "jobs:recent"       # redis list of recent job ids (newest first)
