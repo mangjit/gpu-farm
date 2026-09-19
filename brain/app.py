@@ -431,14 +431,21 @@ def healthz():
 
 @app.get("/api/envcheck", dependencies=[Depends(auth)])
 def envcheck():
-    """Safe diagnostic: which env vars are set + live Redis ping."""
+    """Safe diagnostic: which env vars are set + live Redis ping (with error capture)."""
+    redis_ping = None
+    redis_error = None
+    try:
+        redis_ping = r.ping()
+    except Exception as e:
+        redis_error = f"{type(e).__name__}: {e}"
     return {
         "REDIS_URL_set": bool(REDIS_URL),
         "REDIS_URL_scheme": REDIS_URL.split("://")[0] if REDIS_URL else "",
         "API_KEY_set": bool(API_KEY and API_KEY != "change-me"),
         "TELEGRAM_TOKEN_set": bool(TELEGRAM_TOKEN),
         "TELEGRAM_CHAT_ID_set": bool(TELEGRAM_CHAT_ID),
-        "redis_ping": r.ping(),
+        "redis_ping": redis_ping,
+        "redis_error": redis_error,
     }
 
 
